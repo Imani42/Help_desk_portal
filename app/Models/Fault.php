@@ -13,6 +13,7 @@ class Fault extends Model
     'type',
     'description',
     'location',
+    'contact_phone',
     'status',
     'technician_id'
 

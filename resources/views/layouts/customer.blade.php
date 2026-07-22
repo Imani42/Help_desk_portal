@@ -40,14 +40,14 @@
         <!-- TOPBAR -->
         <div class="topbar">
             <h3>TTCL Fault Portal</h3>
-            <div class="topbar-user">
+            <a href="/customer/account" class="topbar-user">
                 @if(auth()->user()->profile_photo)
                     <img class="user-avatar" src="{{ asset(auth()->user()->profile_photo) }}" alt="{{ auth()->user()->name }}">
                 @else
                     <div class="user-avatar user-avatar-empty">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</div>
                 @endif
-                <span class="user-label">User: {{ auth()->user()->name }}</span>
-            </div>
+                <span class="user-label">Customer: {{ auth()->user()->name }}</span>
+            </a>
         </div>
 
         <!-- CONTENT -->
@@ -59,5 +59,6 @@
 
 </div>
 
+<script src="{{ asset('js/script.js') }}"></script>
 </body>
 </html>

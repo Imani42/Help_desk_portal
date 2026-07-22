@@ -55,9 +55,19 @@
         <form method="POST" action="/account/password">
             @csrf
 
-            <input type="password" name="current_password" placeholder="Current password" required>
-            <input type="password" name="password" placeholder="New password" required>
-            <input type="password" name="password_confirmation" placeholder="Confirm new password" required>
+            <div class="password-field">
+                <input type="password" name="current_password" placeholder="Current password" required>
+                <button type="button" class="password-toggle" data-password-toggle aria-label="Show current password">&#128065;</button>
+            </div>
+            <div class="password-field">
+                <input type="password" name="password" placeholder="New password" required>
+                <button type="button" class="password-toggle" data-password-toggle aria-label="Show new password">&#128065;</button>
+            </div>
+            <p class="password-policy">Use at least 8 characters with 1 capital letter, 2 digits, and 1 special character.</p>
+            <div class="password-field">
+                <input type="password" name="password_confirmation" placeholder="Confirm new password" required>
+                <button type="button" class="password-toggle" data-password-toggle aria-label="Show password confirmation">&#128065;</button>
+            </div>
 
             <button type="submit">Reset Password</button>
         </form>
@@ -71,7 +81,10 @@
             @csrf
             @method('DELETE')
 
-            <input type="password" name="current_password" placeholder="Current password" required>
+            <div class="password-field">
+                <input type="password" name="current_password" placeholder="Current password" required>
+                <button type="button" class="password-toggle" data-password-toggle aria-label="Show current password">&#128065;</button>
+            </div>
             <button type="submit">Delete Account</button>
         </form>
     </div>

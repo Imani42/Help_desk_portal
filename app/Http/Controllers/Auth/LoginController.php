@@ -18,8 +18,11 @@ class LoginController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required'
+            'email' => 'required|email|max:255',
+            'password' => 'required|string|max:255'
+        ], [
+            'email.max' => 'Email is too long. Please enter a valid email address.',
+            'password.max' => 'Password is too long. Please enter the correct password.',
         ]);
 
         if (Auth::attempt($credentials)) {
@@ -28,12 +31,10 @@ class LoginController extends Controller
 
             $user = Auth::user();
 
-            if (in_array($user->role, ['customer', 'technician']) && ! $user->is_approved) {
+            if (in_array($user->role, ['customer', 'technician', 'manager']) && ! $user->is_approved) {
                 Auth::logout();
 
-                return redirect('/login')->withErrors([
-                    'email' => 'Your account is waiting for manager approval'
-                ]);
+                return redirect('/login')->with('success', 'Wait for admin approval before login. It will take not more than 24 hours.');
             }
 
             if ($user->role == 'customer') {
@@ -46,6 +47,10 @@ class LoginController extends Controller
 
             if ($user->role == 'manager') {
                 return redirect('/manager/dashboard');
+            }
+
+            if ($user->role == 'admin') {
+                return redirect('/admin/dashboard');
             }
 
             Auth::logout();

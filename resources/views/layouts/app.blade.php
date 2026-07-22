@@ -13,6 +13,10 @@
 
     @yield('content')
 
+    <script>
+        window.TANZANIA_LOCATIONS = @json(config('tanzania_locations.regions'));
+    </script>
+
     <!-- Custom JS -->
     <script src="{{ asset('js/script.js') }}"></script>
 

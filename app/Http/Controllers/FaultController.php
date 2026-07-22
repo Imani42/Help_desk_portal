@@ -20,14 +20,25 @@ class FaultController extends Controller
         $request->validate([
             'type' => 'required',
             'description' => 'required',
-            'location' => 'required'
+            'contact_phone' => 'nullable|string|max:255',
         ]);
 
+        $user = Auth::user();
+        $location = collect([
+            'Region' => $user->region,
+            'District' => $user->district,
+            'Ward' => $user->ward,
+            'Street' => $user->street,
+        ])->filter()->map(function ($value, $label) {
+            return $label . ': ' . $value;
+        })->implode(', ');
+
         Fault::create([
-            'user_id' => Auth::id(),
+            'user_id' => $user->id,
             'type' => $request->type,
             'description' => $request->description,
-            'location' => $request->location,
+            'location' => $location ?: 'Not provided',
+            'contact_phone' => $request->contact_phone,
             'status' => 'Pending'
         ]);
 

@@ -9,6 +9,8 @@ use App\Http\Controllers\ManagerController;
 use App\Http\Controllers\TechnicianController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\FaultCommentController;
+use App\Http\Controllers\AdminController;
+use App\Models\User;
 
 /*
 |--------------------------------------------------------------------------
@@ -16,7 +18,17 @@ use App\Http\Controllers\FaultCommentController;
 |--------------------------------------------------------------------------
 */
 Route::get('/', function () {
-    return view('dashboard');
+    return view('dashboard', [
+        'adminExists' => User::where('role', 'admin')->exists(),
+        'showRegisterOptions' => false,
+    ]);
+});
+
+Route::get('/register', function () {
+    return view('dashboard', [
+        'adminExists' => User::where('role', 'admin')->exists(),
+        'showRegisterOptions' => true,
+    ]);
 });
 
 /*
@@ -32,6 +44,9 @@ Route::post('/register/manager', [StaffAuthController::class, 'registerManager']
 
 Route::get('/register/technician', [StaffAuthController::class, 'technicianForm']);
 Route::post('/register/technician', [StaffAuthController::class, 'registerTechnician']);
+
+Route::get('/register/admin', [StaffAuthController::class, 'adminForm']);
+Route::post('/register/admin', [StaffAuthController::class, 'registerAdmin']);
 
 /*
 |--------------------------------------------------------------------------
@@ -58,10 +73,28 @@ Route::middleware(['auth'])->group(function () {
 
 /*
 |--------------------------------------------------------------------------
+| ADMIN
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/admin/dashboard', [AdminController::class, 'dashboard']);
+    Route::get('/admin/managers/add', [AdminController::class, 'addManager']);
+    Route::post('/admin/managers/store', [AdminController::class, 'storeManager']);
+    Route::get('/admin/managers', [AdminController::class, 'managers']);
+    Route::post('/admin/manager/approve/{id}', [AdminController::class, 'approveManager']);
+    Route::post('/admin/manager/deactivate/{id}', [AdminController::class, 'deactivateManager']);
+    Route::delete('/admin/manager/delete/{id}', [AdminController::class, 'deleteManager']);
+    Route::get('/admin/technicians', [AdminController::class, 'technicians']);
+    Route::get('/admin/customers', [AdminController::class, 'customers']);
+    Route::get('/admin/account', [AdminController::class, 'account']);
+});
+
+/*
+|--------------------------------------------------------------------------
 | CUSTOMER (PROTECTED)
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'role:customer'])->group(function () {
 
     Route::get('/customer/dashboard', [CustomerController::class, 'dashboard']);
     Route::get('/customer/report', [CustomerController::class, 'report']);
@@ -70,6 +103,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/customer/account', [CustomerController::class, 'account']);
 
     Route::post('/customer/fault/store', [CustomerController::class, 'storeFault']);
+    Route::delete('/customer/fault/{id}', [CustomerController::class, 'deleteFault']);
 });
 
 /*
@@ -79,7 +113,7 @@ Route::middleware(['auth'])->group(function () {
 */
 
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'role:manager'])->group(function () {
 
     Route::get('/manager/dashboard', [ManagerController::class, 'dashboard']);
     Route::get('/manager/faults', [ManagerController::class, 'allFaults']);
@@ -92,20 +126,24 @@ Route::middleware(['auth'])->group(function () {
 Route::get('/manager/technicians', [ManagerController::class, 'technicians']);
 Route::post('/manager/technician/store', [ManagerController::class, 'storeTechnician']);
 Route::post('/manager/technician/update/{id}', [ManagerController::class, 'updateTechnician']);
-Route::get('/manager/technician/delete/{id}', [ManagerController::class, 'deleteTechnician']);
-Route::get('/manager/user/approve/{id}', [ManagerController::class, 'approveUser']);
-Route::get('/manager/user/deactivate/{id}', [ManagerController::class, 'deactivateUser']);
+Route::delete('/manager/technician/delete/{id}', [ManagerController::class, 'deleteTechnician']);
+Route::post('/manager/user/approve/{id}', [ManagerController::class, 'approveUser']);
+Route::post('/manager/user/deactivate/{id}', [ManagerController::class, 'deactivateUser']);
+
+// USERS
+Route::get('/manager/users', [ManagerController::class, 'users']);
+Route::post('/manager/users/store', [ManagerController::class, 'storeUser']);
 
 // CUSTOMERS
 Route::get('/manager/customers', [ManagerController::class, 'customers']);
 Route::post('/manager/customer/store', [ManagerController::class, 'storeCustomer']);
 Route::post('/manager/customer/update/{id}', [ManagerController::class, 'updateCustomer']);
-Route::get('/manager/customer/delete/{id}', [ManagerController::class, 'deleteCustomer']);
+Route::delete('/manager/customer/delete/{id}', [ManagerController::class, 'deleteCustomer']);
 });
 
 
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'role:technician'])->group(function () {
 
     Route::get('/technician/dashboard', [TechnicianController::class, 'dashboard']);
     Route::get('/technician/assigned', [TechnicianController::class, 'assigned']);

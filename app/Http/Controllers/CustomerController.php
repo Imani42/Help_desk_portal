@@ -10,15 +10,24 @@ class CustomerController extends Controller
 {
     public function dashboard()
     {
+        $reportedCount = Fault::where('user_id', Auth::id())->count();
+        $inProgressCount = Fault::where('user_id', Auth::id())->where('status', 'In Progress')->count();
+        $resolvedCount = Fault::where('user_id', Auth::id())->where('status', 'Resolved')->count();
+        $pendingCount = Fault::where('user_id', Auth::id())->where('status', 'Pending')->count();
+
         $faults = Fault::where('user_id', Auth::id())
             ->with(['technician', 'comments.author', 'comments.replies.author'])
             ->latest()
-            ->take(2)
+            ->take(5)
             ->get();
 
         return view('customer.dashboard', [
             'page' => 'dashboard',
-            'faults' => $faults
+            'faults' => $faults,
+            'reportedCount' => $reportedCount,
+            'inProgressCount' => $inProgressCount,
+            'resolvedCount' => $resolvedCount,
+            'pendingCount' => $pendingCount,
         ]);
     }
 
@@ -47,6 +56,7 @@ class CustomerController extends Controller
         $faults = Fault::where('user_id', Auth::id())
             ->with(['technician', 'comments.author', 'comments.replies.author'])
             ->where('status', 'Resolved')
+            ->latest()
             ->get();
 
         return view('customer.dashboard', [
@@ -67,17 +77,36 @@ class CustomerController extends Controller
         $request->validate([
             'type' => 'required',
             'description' => 'required',
-            'location' => 'required'
+            'contact_phone' => 'nullable|string|max:255',
         ]);
 
+        $user = Auth::user();
+        $location = collect([
+            'Region' => $user->region,
+            'District' => $user->district,
+            'Ward' => $user->ward,
+            'Street' => $user->street,
+        ])->filter()->map(function ($value, $label) {
+            return $label . ': ' . $value;
+        })->implode(', ');
+
         Fault::create([
-            'user_id' => Auth::id(),
+            'user_id' => $user->id,
             'type' => $request->type,
             'description' => $request->description,
-            'location' => $request->location,
+            'location' => $location ?: 'Not provided',
+            'contact_phone' => $request->contact_phone,
             'status' => 'Pending'
         ]);
 
         return redirect('/customer/dashboard');
+    }
+
+    public function deleteFault($id)
+    {
+        $fault = Fault::where('user_id', Auth::id())->findOrFail($id);
+        $fault->delete();
+
+        return redirect('/customer/my-faults')->with('success', 'Fault deleted successfully');
     }
 }

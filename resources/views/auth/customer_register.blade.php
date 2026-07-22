@@ -6,26 +6,42 @@
 
     <h2>Customer Registration</h2>
 
+    @include('partials.form-errors')
+
     <form method="POST" action="/register/customer">
         @csrf
 
-        <input type="text" name="name" placeholder="Full Names" required><br>
+        <input type="text" name="name" placeholder="Full Names" value="{{ old('name') }}" maxlength="255" required><br>
 
-        <input type="email" name="email" placeholder="example@gmail.com" required><br>
+        <input type="email" name="email" placeholder="example@gmail.com" value="{{ old('email') }}" maxlength="255" required><br>
+        @error('email')
+            <div class="field-error">{{ $message }}</div>
+        @enderror
 
-        <input type="text" name="phone" placeholder="e.g 0712345678 or +255712345678" required><br>
+        <input type="text" name="phone" placeholder="e.g 0712345678 or +255712345678" value="{{ old('phone') }}" maxlength="20" required><br>
+        @error('phone')
+            <div class="field-error">{{ $message }}</div>
+        @enderror
 
-        <input type="text" name="region" placeholder="Region" required><br>
+        @include('partials.location-fields')
 
-        <input type="text" name="district" placeholder="District" required><br>
+        <input type="text" name="ward" placeholder="Ward" value="{{ old('ward') }}" maxlength="255" required><br>
 
-        <input type="text" name="ward" placeholder="Ward" required><br>
+        <input type="text" name="street" placeholder="Street" value="{{ old('street') }}" maxlength="255" required><br>
 
-        <input type="text" name="street" placeholder="Street" required><br>
+        <div class="password-field">
+            <input type="password" name="password" placeholder="Password" maxlength="255" required>
+            <button type="button" class="password-toggle" data-password-toggle aria-label="Show password">&#128065;</button>
+        </div>
+        <p class="password-policy">Use at least 8 characters with 1 capital letter, 2 digits, and 1 special character.</p>
+        @error('password')
+            <div class="field-error">{{ $message }}</div>
+        @enderror
 
-        <input type="password" name="password" placeholder="Password" required><br>
-
-        <input type="password" name="password_confirmation" placeholder="Confirm Password" required><br>
+        <div class="password-field">
+            <input type="password" name="password_confirmation" placeholder="Confirm Password" maxlength="255" required>
+            <button type="button" class="password-toggle" data-password-toggle aria-label="Show password confirmation">&#128065;</button>
+        </div>
 
         <button type="submit">Register</button>
 

@@ -9,6 +9,18 @@ use Illuminate\Validation\Rule;
 
 class AccountController extends Controller
 {
+    private const PASSWORD_RULES = [
+        'required',
+        'string',
+        'min:6',
+        'confirmed',
+        'regex:/^(?=(?:.*\d){2,})(?=.*[A-Z])(?=.*[^A-Za-z0-9]).+$/',
+    ];
+
+    private const PASSWORD_MESSAGES = [
+        'password.regex' => 'Password must include at least one capital letter, at least two digits, and at least one special character.',
+    ];
+
     public function updateInfo(Request $request)
     {
         $user = Auth::user();
@@ -16,7 +28,7 @@ class AccountController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'phone' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:255', Rule::unique('users')->ignore($user->id)],
             'region' => ['nullable', 'string', 'max:255'],
             'district' => ['nullable', 'string', 'max:255'],
             'ward' => ['nullable', 'string', 'max:255'],
@@ -52,8 +64,8 @@ class AccountController extends Controller
     {
         $request->validate([
             'current_password' => ['required', 'current_password'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
+            'password' => self::PASSWORD_RULES,
+        ], self::PASSWORD_MESSAGES);
 
         $user = Auth::user();
         $user->password = Hash::make($request->password);
@@ -62,6 +74,7 @@ class AccountController extends Controller
         return back()->with('success', 'Password reset successfully');
     }
 
+    // for password reset
     public function delete(Request $request)
     {
         $request->validate([
