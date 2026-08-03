@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class LoginController extends Controller
 {
@@ -25,7 +26,11 @@ class LoginController extends Controller
             'password.max' => 'Password is too long. Please enter the correct password.',
         ]);
 
+        $attemptKey = 'login_attempts_' . hash('sha256', Str::lower($credentials['email']));
+
         if (Auth::attempt($credentials)) {
+
+            $request->session()->forget($attemptKey);
 
             $request->session()->regenerate();
 
@@ -59,9 +64,17 @@ class LoginController extends Controller
             ]);
         }
 
-        return back()->withErrors([
-            'email' => 'Invalid login details'
-        ]);
+        $attempts = (int) $request->session()->get($attemptKey, 0) + 1;
+        $request->session()->put($attemptKey, $attempts);
+
+        $errors = ['email' => 'Invalid login details.'];
+
+        if ($attempts >= 3) {
+            $errors['email'] = 'Invalid login details. You have entered an incorrect password three times. Use Forgot Password to reset it.';
+            $request->session()->flash('show_forgot_password', true);
+        }
+
+        return back()->withErrors($errors)->withInput($request->only('email'));
     }
 
     // Logout

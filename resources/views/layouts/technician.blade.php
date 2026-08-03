@@ -11,7 +11,9 @@
 <div class="dashboard">
 
     <input type="checkbox" id="sidebar-toggle" class="sidebar-toggle">
-    <label for="sidebar-toggle" class="menu-button">Menu</label>
+    <label for="sidebar-toggle" class="menu-button" aria-label="Toggle sidebar" title="Toggle sidebar">
+        <span></span><span></span><span></span>
+    </label>
     <label for="sidebar-toggle" class="sidebar-backdrop"></label>
 
     <!-- SIDEBAR -->
@@ -19,7 +21,7 @@
 
         <div class="logo-box">
             <img src="{{ asset('images/ttcl.png') }}" alt="TTCL Logo">
-            <h2>TTCL</h2>
+            <p>Corporation that connects</p>
         </div>
 
         <a href="/technician/dashboard" class="{{ $page=='dashboard' ? 'active' : '' }}">Dashboard</a>

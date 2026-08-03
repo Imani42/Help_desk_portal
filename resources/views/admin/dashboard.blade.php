@@ -43,13 +43,32 @@
 </div>
 
 <div class="dashboard-panel">
-    <h3>Fault Trends</h3>
-    <div class="fault-histogram">
-        @foreach($trendData as $day)
+    <div class="trend-panel-heading">
+        <div>
+            <h3>Fault Trends</h3>
+            <p>Faults reported each month</p>
+        </div>
+        <form method="GET" action="/admin/dashboard" class="trend-filter">
+            <label>
+                From
+                <input type="month" name="trend_start" value="{{ $trendStart }}">
+            </label>
+            <label>
+                To
+                <input type="month" name="trend_end" value="{{ $trendEnd }}">
+            </label>
+            <button type="submit">Apply</button>
+        </form>
+    </div>
+    @error('trend_end')
+        <p class="trend-filter-error">{{ $message }}</p>
+    @enderror
+    <div class="fault-histogram" style="grid-template-columns:repeat({{ count($trendData) }}, minmax(0, 1fr));">
+        @foreach($trendData as $month)
             <div class="histogram-column">
-                <span>{{ $day['count'] }}</span>
-                <div class="histogram-bar" style="height:{{ $day['height'] }}%"></div>
-                <small>{{ $day['label'] }}</small>
+                <span>{{ $month['count'] }}</span>
+                <div class="histogram-bar" style="height:{{ $month['height'] }}%" title="{{ $month['count'] }} faults in {{ $month['label'] }}"></div>
+                <small class="{{ $month['showLabel'] ? '' : 'histogram-label-spacer' }}">{{ $month['showLabel'] ? $month['label'] : '' }}</small>
             </div>
         @endforeach
     </div>
@@ -210,5 +229,17 @@ document.addEventListener('DOMContentLoaded', function(){
     });
 });
 </script>
+
+@if($page === 'managers' && $managers->hasPages())
+    <div class="pagination">{{ $managers->onEachSide(1)->links() }}</div>
+@endif
+
+@if($page === 'technicians' && $technicians->hasPages())
+    <div class="pagination">{{ $technicians->onEachSide(1)->links() }}</div>
+@endif
+
+@if($page === 'customers' && $customers->hasPages())
+    <div class="pagination">{{ $customers->onEachSide(1)->links() }}</div>
+@endif
 
 @endsection

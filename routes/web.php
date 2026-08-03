@@ -10,6 +10,7 @@ use App\Http\Controllers\TechnicianController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\FaultCommentController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\PasswordResetController;
 use App\Models\User;
 
 /*
@@ -56,6 +57,24 @@ Route::post('/register/admin', [StaffAuthController::class, 'registerAdmin']);
 Route::get('/login', [LoginController::class, 'showLogin'])->name('login');
 Route::post('/login', [LoginController::class, 'login']);
 Route::get('/logout', [LoginController::class, 'logout']);
+
+/*
+|--------------------------------------------------------------------------
+| PASSWORD RESET
+|--------------------------------------------------------------------------
+*/
+Route::get('/forgot-password', [PasswordResetController::class, 'showLinkRequestForm'])
+    ->middleware('guest')
+    ->name('password.request');
+Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLinkEmail'])
+    ->middleware('guest')
+    ->name('password.email');
+Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])
+    ->middleware('guest')
+    ->name('password.reset');
+Route::post('/reset-password', [PasswordResetController::class, 'reset'])
+    ->middleware('guest')
+    ->name('password.update');
 
 /*
 |--------------------------------------------------------------------------

@@ -6,7 +6,6 @@ use App\Models\Fault;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -65,35 +64,61 @@ class AdminController extends Controller
         ] + self::PASSWORD_MESSAGES;
     }
 
-    private function trendData(): array
+    private function trendData(Carbon $startMonth, Carbon $endMonth): array
     {
-        $startDate = Carbon::today()->subDays(6);
-        $countsByDate = Fault::selectRaw('DATE(created_at) as fault_date, COUNT(*) as total')
-            ->whereDate('created_at', '>=', $startDate)
-            ->groupBy(DB::raw('DATE(created_at)'))
-            ->pluck('total', 'fault_date');
+        $endExclusive = $endMonth->copy()->addMonth();
+        $countsByMonth = Fault::query()
+            ->where('created_at', '>=', $startMonth)
+            ->where('created_at', '<', $endExclusive)
+            ->get(['created_at'])
+            ->countBy(fn (Fault $fault) => $fault->created_at->format('Y-m'));
 
-        $days = collect(range(6, 0))->map(function ($daysAgo) use ($countsByDate) {
-            $date = Carbon::today()->subDays($daysAgo);
-            $dateKey = $date->toDateString();
+        $months = collect();
+        $month = $startMonth->copy();
 
-            return [
-                'label' => $date->format('d M'),
-                'count' => (int) ($countsByDate[$dateKey] ?? 0),
-            ];
-        });
+        while ($month->lessThanOrEqualTo($endMonth)) {
+            $monthKey = $month->format('Y-m');
 
-        $max = max($days->max('count'), 1);
+            $months->push([
+                'label' => $month->format('M Y'),
+                'count' => (int) ($countsByMonth[$monthKey] ?? 0),
+            ]);
 
-        return $days->map(function ($day) use ($max) {
-            $day['height'] = max(8, round(($day['count'] / $max) * 100));
-            return $day;
+            $month->addMonth();
+        }
+
+        $max = max($months->max('count'), 1);
+
+        $labelEvery = max(1, (int) ceil($months->count() / 12));
+
+        return $months->values()->map(function ($month, $index) use ($max, $labelEvery) {
+            $month['height'] = max(8, round(($month['count'] / $max) * 100));
+            $month['showLabel'] = $index % $labelEvery === 0 || $index === $months->count() - 1;
+            return $month;
         })->all();
     }
 
-    public function dashboard()
+    public function dashboard(Request $request)
     {
         $this->authorizeAdmin();
+        $request->validate([
+            'trend_start' => ['nullable', 'date_format:Y-m'],
+            'trend_end' => ['nullable', 'date_format:Y-m'],
+        ]);
+
+        $startMonth = $request->filled('trend_start')
+            ? Carbon::createFromFormat('Y-m', $request->trend_start)->startOfMonth()
+            : Carbon::today()->startOfMonth()->subMonths(11);
+        $endMonth = $request->filled('trend_end')
+            ? Carbon::createFromFormat('Y-m', $request->trend_end)->startOfMonth()
+            : Carbon::today()->startOfMonth();
+
+        if ($startMonth->greaterThan($endMonth)) {
+            throw ValidationException::withMessages([
+                'trend_end' => 'The end month must be the same as or later than the start month.',
+            ]);
+        }
+
         $userCounts = User::selectRaw('role, COUNT(*) as total')
             ->whereIn('role', ['manager', 'technician', 'customer'])
             ->groupBy('role')
@@ -104,7 +129,9 @@ class AdminController extends Controller
             'technicianCount' => (int) ($userCounts['technician'] ?? 0),
             'customerCount' => (int) ($userCounts['customer'] ?? 0),
             'faultCount' => Fault::count(),
-            'trendData' => $this->trendData(),
+            'trendData' => $this->trendData($startMonth, $endMonth),
+            'trendStart' => $startMonth->format('Y-m'),
+            'trendEnd' => $endMonth->format('Y-m'),
             'page' => 'dashboard',
         ]);
     }
@@ -148,7 +175,7 @@ class AdminController extends Controller
         $this->authorizeAdmin();
 
         return view('admin.dashboard', [
-            'managers' => User::where('role', 'manager')->orderBy('is_approved')->latest()->get(),
+            'managers' => User::where('role', 'manager')->orderBy('is_approved')->latest()->paginate(20),
             'page' => 'managers',
         ]);
     }
@@ -189,7 +216,7 @@ class AdminController extends Controller
         $this->authorizeAdmin();
 
         return view('admin.dashboard', [
-            'technicians' => User::where('role', 'technician')->latest()->get(),
+            'technicians' => User::where('role', 'technician')->latest()->paginate(20),
             'page' => 'technicians',
         ]);
     }
@@ -199,7 +226,7 @@ class AdminController extends Controller
         $this->authorizeAdmin();
 
         return view('admin.dashboard', [
-            'customers' => User::where('role', 'customer')->latest()->get(),
+            'customers' => User::where('role', 'customer')->latest()->paginate(20),
             'page' => 'customers',
         ]);
     }

@@ -3,6 +3,8 @@
     $selectedRegion = $selectedRegion ?? old('region');
     $selectedDistrict = $selectedDistrict ?? old('district');
     $regionReadonly = $regionReadonly ?? false;
+    $districtRegion = $regionReadonly ? $selectedRegion : old('region', $selectedRegion);
+    $districtOptions = $locationRegions[$districtRegion] ?? [];
 @endphp
 
 @if($regionReadonly)
@@ -22,6 +24,9 @@
 
 <select name="district" data-district-select data-selected-district="{{ $selectedDistrict }}" data-fixed-region="{{ $regionReadonly ? $selectedRegion : '' }}" required>
     <option value="">Select District</option>
+    @foreach($districtOptions as $district)
+        <option value="{{ $district }}" {{ $selectedDistrict === $district ? 'selected' : '' }}>{{ $district }}</option>
+    @endforeach
 </select>
 @error('district')
     <div class="field-error">{{ $message }}</div>

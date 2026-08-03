@@ -2,6 +2,15 @@
 
 @section('content')
 
+@php
+    $managerRegion = trim((string) auth()->user()->region);
+    $locationRegions = config('tanzania_locations.regions', []);
+    $matchedRegion = collect(array_keys($locationRegions))->first(function ($region) use ($managerRegion) {
+        return strtolower($region) === strtolower($managerRegion);
+    }) ?? $managerRegion;
+    $managerDistricts = $locationRegions[$matchedRegion] ?? [];
+@endphp
+
 <div class="portal-form-wrap">
     <div class="card portal-form-card">
         <h3>Add User</h3>
@@ -30,11 +39,18 @@
             <input type="text" name="name" placeholder="Name" value="{{ old('name') }}" required>
             <input type="email" name="email" placeholder="Email" value="{{ old('email') }}" required>
             <input type="text" name="phone" placeholder="Phone" value="{{ old('phone') }}" required>
-            @include('partials.location-fields', [
-                'selectedRegion' => auth()->user()->region,
-                'selectedDistrict' => old('district'),
-                'regionReadonly' => true,
-            ])
+
+            <input type="text" value="{{ $matchedRegion }}" placeholder="Region" readonly required>
+            <input type="hidden" name="region" value="{{ $matchedRegion }}">
+            <select name="district" required>
+                <option value="">{{ count($managerDistricts) ? 'Select District' : 'No districts found for this region' }}</option>
+                @foreach($managerDistricts as $district)
+                    <option value="{{ $district }}" {{ old('district') === $district ? 'selected' : '' }}>{{ $district }}</option>
+                @endforeach
+            </select>
+            @error('district')
+                <div class="field-error">{{ $message }}</div>
+            @enderror
 
             <div class="customer-fields" data-role-fields="customer">
                 <input type="text" name="ward" placeholder="Ward" value="{{ old('ward') }}">
@@ -61,6 +77,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var role = document.getElementById('user-role');
     var customerFields = document.querySelector('[data-role-fields="customer"]');
     var technicianFields = document.querySelector('[data-role-fields="technician"]');
+    var alerts = document.querySelectorAll('.portal-form-card .alert');
 
     function setFieldState(container, isVisible) {
         container.style.display = isVisible ? 'block' : 'none';
@@ -76,6 +93,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     role.addEventListener('change', toggleFields);
     toggleFields();
+
+    alerts.forEach(function (alert) {
+        setTimeout(function () {
+            alert.style.display = 'none';
+        }, 5000);
+    });
 });
 </script>
 

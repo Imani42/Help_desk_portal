@@ -56,7 +56,7 @@
 @if($page == 'report')
 
 <div class="card">
-    <h3>Report Network Fault</h3>
+    <h3>Report Fault</h3>
 
     @if($errors->any())
     <div class="alert error">
@@ -69,23 +69,19 @@
     <form method="POST" action="/customer/fault/store">
         @csrf
 
-        <select name="type" required>
-            <option value="">Choose Fault(Chagua Aina ya Tatizo)</option>
-            <option>No Internet (Mtandao haupatikani)</option>
-            <option>Slow Internet (Mtandao ni polepole)</option>
-            <option>Cable Cut (Kukatika kwa waya)</option>
-            <option>No Mobile Service (Hakuna huduma ya simu)</option>
-            <option>No Power to Device (Kifaa Hakipokei umeme)</option>
-            <option>Weak Signal (Signal dhaifu)</option>
-            <option>Equipment Damage (Kifaa kimeharibika)</option>
-            <option>Sudden Service Interruption (Huduma imekatika ghafla)</option>
-            <option>VoIP or Landline Issue (Tatizo la VoIP au Simu ya mezani)</option>
-            <option>Other (Tatizo lingine)</option>
+       SELECT A FAULT TYPE(CHAGUA AINA YA TATIZO)<select name="type" required>
+            <!-- <option value="">Select fault type</option> -->
+            <option {{ old('type') == 'No Internet' ? 'selected' : '' }}>No Internet(Hakuna mtandao)</option>
+            <option {{ old('type') == 'Slow Internet' ? 'selected' : '' }}>Slow Internet(Mtandao uko pole pole)</option>
+            <option {{ old('type') == 'Cable Cut' ? 'selected' : '' }}>Cable Cut(waya umekatika)</option>
+            <option {{ old('type') == 'Phone Service Issue' ? 'selected' : '' }}>Phone Service Issue(Tatizo la simu)</option>
+            <option {{ old('type') == 'Equipment Issue' ? 'selected' : '' }}>Equipment Issue(Tatizo la kiufundi)</option>
+            <option {{ old('type') == 'Other' ? 'selected' : '' }}>Other</option>
         </select>
 
-        <textarea name="description" placeholder="Describe the problem..." required></textarea>
+        <textarea name="description" placeholder="Briefly Problem Descriptio(maelezo mafupi juu ya tatizo)" required>{{ old('description') }}</textarea>
 
-        <input type="text" name="contact_phone" value="{{ old('contact_phone') }}" placeholder="Optional phone number if different from registration">
+        <input type="text" name="contact_phone" value="{{ old('contact_phone') }}" placeholder="Phone number (optional)">
 
         <button type="submit">Submit Fault</button>
     </form>
@@ -311,6 +307,10 @@ document.addEventListener('DOMContentLoaded', function(){
 
 @include('account.manage')
 
+@endif
+
+@if(in_array($page, ['my_faults', 'resolved']) && $faults->hasPages())
+    <div class="pagination">{{ $faults->onEachSide(1)->links() }}</div>
 @endif
 
 @endsection

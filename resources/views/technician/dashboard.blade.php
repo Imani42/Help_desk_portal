@@ -222,4 +222,8 @@ document.addEventListener('DOMContentLoaded', function(){
 @include('account.manage')
 @endif
 
+@if(in_array($page, ['assigned', 'completed']) && $faults->hasPages())
+    <div class="pagination">{{ $faults->onEachSide(1)->links() }}</div>
+@endif
+
 @endsection

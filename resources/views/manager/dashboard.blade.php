@@ -195,6 +195,14 @@ document.addEventListener('DOMContentLoaded', function () {
     @endforeach
 </select>
 
+<div style="display:none">
+    @foreach($faults as $fault)
+        <template id="all-fault-comments-{{ $fault->id }}">
+            @include('faults.comments', ['fault' => $fault, 'context' => 'manager'])
+        </template>
+    @endforeach
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function(){
     var selectedAll = null;
@@ -247,6 +255,8 @@ document.addEventListener('DOMContentLoaded', function(){
                     '<button type="submit">Assign</button>' +
                     '</form>';
 
+            var commentsTemplate = document.getElementById('all-fault-comments-' + id);
+            if (commentsTemplate) html += commentsTemplate.innerHTML;
             details.innerHTML = '<h3>Fault Details</h3>' + html;
         });
     });
@@ -291,6 +301,14 @@ document.addEventListener('DOMContentLoaded', function(){
         <option value="{{ $tech->id }}">{{ $tech->name }}</option>
     @endforeach
 </select>
+
+<div style="display:none">
+    @foreach($faults as $fault)
+        <template id="assigned-fault-comments-{{ $fault->id }}">
+            @include('faults.comments', ['fault' => $fault, 'context' => 'manager'])
+        </template>
+    @endforeach
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function(){
@@ -344,6 +362,8 @@ document.addEventListener('DOMContentLoaded', function(){
                     '<button type="submit">Assign</button>' +
                     '</form>';
 
+            var commentsTemplate = document.getElementById('assigned-fault-comments-' + id);
+            if (commentsTemplate) html += commentsTemplate.innerHTML;
             details.innerHTML = '<h3>Fault Details</h3>' + html;
         });
     });
@@ -515,5 +535,17 @@ document.addEventListener('DOMContentLoaded', function(){
     });
 });
 </script>
+
+@if(in_array($page, ['all_faults', 'assigned']) && $faults->hasPages())
+    <div class="pagination">{{ $faults->onEachSide(1)->links() }}</div>
+@endif
+
+@if($page === 'technicians' && $technicians->hasPages())
+    <div class="pagination">{{ $technicians->onEachSide(1)->links() }}</div>
+@endif
+
+@if($page === 'customers' && $customers->hasPages())
+    <div class="pagination">{{ $customers->onEachSide(1)->links() }}</div>
+@endif
 
 @endsection

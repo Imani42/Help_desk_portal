@@ -17,8 +17,9 @@ class CustomerController extends Controller
 
         $faults = Fault::where('user_id', Auth::id())
             ->with(['technician', 'comments.author', 'comments.replies.author'])
+            ->where('status', '!=', 'Resolved')
             ->latest()
-            ->take(5)
+            ->take(3)
             ->get();
 
         return view('customer.dashboard', [
@@ -43,7 +44,7 @@ class CustomerController extends Controller
         $faults = Fault::where('user_id', Auth::id())
             ->with(['technician', 'comments.author', 'comments.replies.author'])
             ->latest()
-            ->get();
+            ->paginate(20);
 
         return view('customer.dashboard', [
             'page' => 'my_faults',
@@ -57,7 +58,7 @@ class CustomerController extends Controller
             ->with(['technician', 'comments.author', 'comments.replies.author'])
             ->where('status', 'Resolved')
             ->latest()
-            ->get();
+            ->paginate(20);
 
         return view('customer.dashboard', [
             'page' => 'resolved',

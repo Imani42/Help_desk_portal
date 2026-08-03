@@ -7,7 +7,7 @@ use App\Models\Fault;
 
 class TechnicianController extends Controller
 {
-    // DASHBOARD (only assigned faults, limit 5)
+    // DASHBOARD (only assigned unresolved faults, limit 3)
     public function dashboard()
     {
         $assignedCount = Fault::where('technician_id', auth()->id())->count();
@@ -17,8 +17,9 @@ class TechnicianController extends Controller
 
         $faults = Fault::where('technician_id', auth()->id())
                         ->with(['reporter', 'comments.author', 'comments.replies.author'])
+                        ->where('status', '!=', 'Resolved')
                         ->latest()
-                        ->take(5)
+                        ->take(3)
                         ->get();
 
         return view('technician.dashboard', [
@@ -37,7 +38,7 @@ class TechnicianController extends Controller
         $faults = Fault::where('technician_id', auth()->id())
                         ->with(['reporter', 'comments.author', 'comments.replies.author'])
                         ->latest()
-                        ->get();
+                        ->paginate(20);
 
         return view('technician.dashboard', [
             'faults' => $faults,
@@ -52,7 +53,7 @@ class TechnicianController extends Controller
                         ->with(['reporter', 'comments.author', 'comments.replies.author'])
                         ->where('status', 'Resolved')
                         ->latest()
-                        ->get();
+                        ->paginate(20);
 
         return view('technician.dashboard', [
             'faults' => $faults,

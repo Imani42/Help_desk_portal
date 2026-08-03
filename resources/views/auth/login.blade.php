@@ -25,6 +25,16 @@
         <button type="submit">Login</button>
     </form>
 
+    @if(session('show_forgot_password'))
+        <div class="alert error">
+            <p>Need help accessing your account? Reset your password below.</p>
+        </div>
+    @endif
+
+    <p>
+        <a href="{{ route('password.request') }}">Forgot Password?</a>
+    </p>
+
     <p>
         Don't have account? 
         <a href="/">Register</a>

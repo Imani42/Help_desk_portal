@@ -25,7 +25,12 @@ class ManagerController extends Controller
 
     private function managerRegion(): ?string
     {
-        return auth()->user()->region;
+        $managerRegion = trim((string) auth()->user()->region);
+        $regions = config('tanzania_locations.regions', []);
+
+        return collect(array_keys($regions))->first(function ($region) use ($managerRegion) {
+            return strtolower($region) === strtolower($managerRegion);
+        }) ?? $managerRegion;
     }
 
     private function validateDistrictForManager(Request $request): void
@@ -65,7 +70,7 @@ class ManagerController extends Controller
         $faults = $this->faultsInManagerRegion()
             ->where('status', '!=', 'Resolved')
             ->latest()
-            ->take(4)
+            ->take(3)
             ->get();
         $technicians = $this->techniciansInManagerRegion()->get();
 
@@ -92,7 +97,7 @@ class ManagerController extends Controller
     // ALL FAULTS
     public function allFaults()
     {
-        $faults = $this->faultsInManagerRegion()->latest()->get();
+        $faults = $this->faultsInManagerRegion()->latest()->paginate(20);
         $technicians = $this->techniciansInManagerRegion()->get();
 
         return view('manager.dashboard', [
@@ -105,7 +110,7 @@ class ManagerController extends Controller
     // ASSIGNED FAULTS
     public function assigned()
     {
-        $faults = $this->faultsInManagerRegion()->whereNotNull('technician_id')->latest()->get();
+        $faults = $this->faultsInManagerRegion()->whereNotNull('technician_id')->latest()->paginate(20);
         $technicians = $this->techniciansInManagerRegion()->get();
 
         return view('manager.dashboard', [
@@ -145,7 +150,7 @@ public function technicians()
     $technicians = $this->usersInManagerRegion('technician')
         ->orderBy('is_approved')
         ->latest()
-        ->get();
+        ->paginate(20);
 
     return view('manager.dashboard', [
         'technicians' => $technicians,
@@ -269,7 +274,7 @@ public function storeUser(Request $request)
 
     User::create($data);
 
-    return back()->with('success', ucfirst($request->role).' added');
+    return back()->with('success', ucfirst($request->role).' added successfully');
 }
 
 public function customers()
@@ -277,7 +282,7 @@ public function customers()
     $customers = $this->usersInManagerRegion('customer')
         ->orderBy('is_approved')
         ->latest()
-        ->get();
+        ->paginate(20);
 
     return view('manager.dashboard', [
         'customers' => $customers,

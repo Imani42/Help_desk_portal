@@ -3,40 +3,28 @@
     $messages = collect();
 
     foreach ($fault->comments as $comment) {
-        $showComment = $commentContext === 'manager'
-            || ($commentContext === 'customer' && $comment->role === 'customer')
-            || ($commentContext === 'technician' && in_array($comment->role, ['customer', 'technician']));
-
-        if ($showComment) {
-            $messages->push((object)[
-                'id' => $comment->id,
-                'role' => $comment->role,
-                'author' => $comment->author,
-                'body' => $comment->body,
-                'created_at' => $comment->created_at,
-                'is_reply' => false,
-                'parent_id' => null,
-                'user_id' => $comment->user_id,
-            ]);
-        }
+        $messages->push((object)[
+            'id' => $comment->id,
+            'role' => $comment->role,
+            'author' => $comment->author,
+            'body' => $comment->body,
+            'created_at' => $comment->created_at,
+            'is_reply' => false,
+            'parent_id' => null,
+            'user_id' => $comment->user_id,
+        ]);
 
         foreach ($comment->replies as $reply) {
-            $showReply = $commentContext === 'manager'
-                || ($commentContext === 'customer' && $comment->role === 'customer' && $reply->role === 'manager')
-                || ($commentContext === 'technician' && $reply->role === 'manager');
-
-            if ($showReply) {
-                $messages->push((object)[
-                    'id' => $reply->id,
-                    'role' => 'manager',
-                    'author' => $reply->author,
-                    'body' => $reply->body,
-                    'created_at' => $reply->created_at,
-                    'is_reply' => true,
-                    'parent_id' => $comment->id,
-                    'user_id' => $reply->user_id,
-                ]);
-            }
+            $messages->push((object)[
+                'id' => $reply->id,
+                'role' => $reply->role,
+                'author' => $reply->author,
+                'body' => $reply->body,
+                'created_at' => $reply->created_at,
+                'is_reply' => true,
+                'parent_id' => $comment->id,
+                'user_id' => $reply->user_id,
+            ]);
         }
     }
 
@@ -67,7 +55,7 @@
                     </div>
                     <p>{{ $message->body }}</p>
                 </div>
-                @if($currentUser && ($currentUser->role === 'manager' || $currentUser->id === $message->user_id))
+                @if($currentUser && $currentUser->role === 'manager')
                     <form method="POST" action="/fault-comments/{{ $message->id }}" class="delete-comment-form">
                         @csrf
                         @method('DELETE')
@@ -83,7 +71,7 @@
         @endforelse
     </div>
 
-    @if(in_array($commentContext, ['customer', 'technician']))
+    @if(in_array($commentContext, ['customer', 'technician', 'manager']) && ! $fault->comments->count())
         <form method="POST"
               action="/faults/{{ $fault->id }}/comments"
               class="comment-form">
@@ -96,20 +84,19 @@
         </form>
     @endif
 
-    @if($commentContext === 'manager' && $fault->comments->count())
-        @php $latestComment = $fault->comments->first(); @endphp
+    @if(in_array($commentContext, ['customer', 'technician', 'manager']) && $fault->comments->count())
+        @php $conversation = $fault->comments->first(); @endphp
         <div class="reply-section">
-            
             <p class="reply-target">
-                Reply to {{ $latestComment->author ? $latestComment->author->name : 'the conversation' }}
+                Continue conversation
             </p>
             <form method="POST"
-                  action="/fault-comments/{{ $latestComment->id }}/reply"
+                  action="/fault-comments/{{ $conversation->id }}/reply"
                   class="comment-form">
                 @csrf
                 <textarea
                     name="body"
-                    placeholder="Write your reply here..."
+                    placeholder="Write a reply..."
                     required></textarea>
                 <button type="submit">Send Reply</button>
             </form>
