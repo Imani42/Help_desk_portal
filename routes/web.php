@@ -105,6 +105,8 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::delete('/admin/manager/delete/{id}', [AdminController::class, 'deleteManager']);
     Route::get('/admin/technicians', [AdminController::class, 'technicians']);
     Route::get('/admin/customers', [AdminController::class, 'customers']);
+    Route::get('/admin/reports', [AdminController::class, 'reports']);
+    Route::post('/admin/reports/comments/{manager}', [AdminController::class, 'saveReportComment']);
     Route::get('/admin/account', [AdminController::class, 'account']);
 });
 

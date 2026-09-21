@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Fault;
+use App\Models\ManagerReportComment;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -229,6 +230,116 @@ class AdminController extends Controller
             'customers' => User::where('role', 'customer')->latest()->paginate(20),
             'page' => 'customers',
         ]);
+    }
+
+    private function faultRateClass(float $rate): string
+    {
+        return match (true) {
+            $rate >= 80 => 'critical',
+            $rate >= 50 => 'high',
+            $rate >= 30 => 'medium',
+            default => 'low',
+        };
+    }
+
+    private function reportRegions(Carbon $start, Carbon $end): array
+    {
+        $endExclusive = $end->copy()->addMonth();
+        $faults = Fault::query()
+            ->with('reporter:id,region')
+            ->where('created_at', '>=', $start)
+            ->where('created_at', '<', $endExclusive)
+            ->get(['id', 'user_id', 'created_at']);
+        $totalFaults = $faults->count();
+        $faultsByRegion = $faults->groupBy(fn (Fault $fault) => $fault->reporter?->region ?: 'Unspecified');
+        $users = User::query()
+            ->whereIn('role', ['manager', 'technician', 'customer'])
+            ->whereNotNull('region')
+            ->get(['id', 'name', 'region', 'role']);
+        $userRegions = $users->pluck('region')->filter()->unique();
+        $regions = $faultsByRegion->keys()->merge($userRegions)->unique()->sort()->values();
+
+        return $regions->map(function ($region) use ($faultsByRegion, $totalFaults, $users) {
+            $faultCount = $faultsByRegion->get($region, collect())->count();
+            $rate = $totalFaults ? round(($faultCount / $totalFaults) * 100, 1) : 0;
+            $regionalUsers = $users->where('region', $region);
+
+            return [
+                'region' => $region,
+                'faults' => $faultCount,
+                'rate' => $rate,
+                'rateClass' => $this->faultRateClass($rate),
+                'managers' => $regionalUsers->where('role', 'manager')->values(),
+                'technicians' => $regionalUsers->where('role', 'technician')->count(),
+                'customers' => $regionalUsers->where('role', 'customer')->count(),
+            ];
+        })->sortByDesc('faults')->values()->map(function ($region, $index) {
+            $region['rank'] = $index + 1;
+            return $region;
+        })->all();
+    }
+
+    public function reports(Request $request)
+    {
+        $this->authorizeAdmin();
+        $request->validate([
+            'type' => ['nullable', 'in:monthly,annual'],
+            'month' => ['nullable', 'date_format:Y-m'],
+            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+        ]);
+
+        $type = $request->input('type', 'monthly');
+        $year = (int) $request->input('year', now()->year);
+        $month = $request->input('month', now()->format('Y-m'));
+        $start = $type === 'annual'
+            ? Carbon::create($year, 1, 1)->startOfMonth()
+            : Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $end = $type === 'annual' ? $start->copy()->endOfYear()->startOfMonth() : $start->copy();
+        $regions = $this->reportRegions($start, $end);
+
+        $monthlyReports = [];
+        $evaluations = [];
+        $comments = collect();
+        if ($type === 'annual') {
+            for ($number = 1; $number <= 12; $number++) {
+                $period = Carbon::create($year, $number, 1);
+                $monthlyReports[] = [
+                    'label' => $period->format('F'),
+                    'total' => Fault::whereBetween('created_at', [$period->copy()->startOfMonth(), $period->copy()->endOfMonth()])->count(),
+                    'regions' => $this->reportRegions($period, $period),
+                ];
+            }
+            foreach ($regions as $region) {
+                $firstHalf = collect($monthlyReports)->take(6)->sum(fn ($report) => collect($report['regions'])->firstWhere('region', $region['region'])['faults'] ?? 0);
+                $secondHalf = collect($monthlyReports)->skip(6)->sum(fn ($report) => collect($report['regions'])->firstWhere('region', $region['region'])['faults'] ?? 0);
+                $change = $firstHalf ? round((($secondHalf - $firstHalf) / $firstHalf) * 100, 1) : ($secondHalf ? 100 : 0);
+                $status = $change > 10 ? 'Growing' : ($change < -10 ? 'Staging' : 'Maintaining');
+                $evaluations[$region['region']] = compact('firstHalf', 'secondHalf', 'change', 'status');
+            }
+            $comments = ManagerReportComment::where('year', $year)->pluck('comment', 'manager_id');
+        }
+
+        return view('admin.dashboard', compact('type', 'year', 'month', 'regions', 'monthlyReports', 'evaluations', 'comments') + [
+            'reportStart' => $start,
+            'reportEnd' => $end,
+            'page' => 'reports',
+        ]);
+    }
+
+    public function saveReportComment(Request $request, User $manager)
+    {
+        $this->authorizeAdmin();
+        abort_unless($manager->role === 'manager', 404);
+        $data = $request->validate([
+            'year' => ['required', 'integer', 'min:2000', 'max:2100'],
+            'comment' => ['nullable', 'string', 'max:2000'],
+        ]);
+        ManagerReportComment::updateOrCreate(
+            ['manager_id' => $manager->id, 'year' => $data['year']],
+            ['comment' => $data['comment']]
+        );
+
+        return back()->with('success', 'Manager comment saved.');
     }
 
     public function account()

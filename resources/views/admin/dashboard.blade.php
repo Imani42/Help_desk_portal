@@ -94,7 +94,7 @@
             </div>
             <p class="password-policy">Use at least 8 characters with 1 capital letter, 2 digits, and 1 special character.</p>
 
-            <button>Add Manager</button>
+            <button class="add-action-button">Add Manager</button>
         </form>
     </div>
 </div>
@@ -214,6 +214,132 @@
 
 @if($page == 'account')
 @include('account.manage')
+@endif
+
+@if($page == 'reports')
+<div class="report-tools no-print">
+    <div>
+        <h1>Regional Reports</h1>
+        <p>Review regional fault performance and save the finished report as a PDF.</p>
+    </div>
+    <button type="button" class="report-print-button" onclick="window.print()">Print Report</button>
+</div>
+
+<div class="card report-filter no-print">
+    <form method="GET" action="/admin/reports">
+        <label>Report type
+            <select name="type" id="report-type">
+                <option value="monthly" {{ $type === 'monthly' ? 'selected' : '' }}>Monthly report</option>
+                <option value="annual" {{ $type === 'annual' ? 'selected' : '' }}>Annual report</option>
+            </select>
+        </label>
+        <label class="month-input">Month
+            <input type="month" name="month" value="{{ $month }}">
+        </label>
+        <label class="year-input">Year
+            <input type="number" name="year" min="2000" max="2100" value="{{ $year }}">
+        </label>
+        <button type="submit">Generate report</button>
+    </form>
+</div>
+
+<section class="report-document">
+    <div class="report-heading">
+        <div>
+            <img src="{{ asset('images/ttcl.png') }}" alt="TTCL" class="report-logo">
+            <h2>TTCL Fault Performance Report</h2>
+            <p>{{ $type === 'annual' ? 'Annual' : 'Monthly' }} report: {{ $reportStart->format($type === 'annual' ? 'Y' : 'F Y') }}</p>
+        </div>
+        <p class="report-generated">Generated {{ now()->format('d M Y, H:i') }}</p>
+    </div>
+
+    <p class="report-note">Regions are grouped from highest to lowest fault rate. Fault rate is each region's share of faults reported in this period.</p>
+
+    @php($rateGroups = [
+        '80–100% of faults' => 'critical',
+        '50–79% of faults' => 'high',
+        '30–49% of faults' => 'medium',
+        '0–29% of faults' => 'low',
+    ])
+    @if(collect($regions)->isEmpty())
+        <p class="report-empty">No regional records are available for this period.</p>
+    @else
+        @foreach($rateGroups as $groupLabel => $groupClass)
+            @php($groupRegions = collect($regions)->where('rateClass', $groupClass))
+            @if($groupRegions->isNotEmpty())
+                <section class="report-rate-group {{ $groupClass }}">
+                    <h3>{{ $groupLabel }}</h3>
+                    <div class="report-table-wrap">
+                        <table class="regional-report-table">
+                            <thead><tr><th>Rank</th><th>Region</th><th>Faults</th><th>Fault rate</th><th>Managers</th><th>Technicians</th><th>Customers</th></tr></thead>
+                            <tbody>@foreach($groupRegions as $region)
+                                <tr>
+                                    <td>#{{ $region['rank'] }}</td>
+                                    <td><strong>{{ $region['region'] }}</strong></td>
+                                    <td>{{ $region['faults'] }}</td>
+                                    <td><span class="rate-badge {{ $region['rateClass'] }}">{{ number_format($region['rate'], 1) }}%</span></td>
+                                    <td>{{ $region['managers']->pluck('name')->join(', ') ?: '—' }}</td>
+                                    <td>{{ $region['technicians'] }}</td><td>{{ $region['customers'] }}</td>
+                                </tr>
+                            @endforeach</tbody>
+                        </table>
+                    </div>
+                </section>
+            @endif
+        @endforeach
+    @endif
+
+    @if($type === 'annual')
+        <h3 class="report-section-title">Monthly fault reports</h3>
+        <div class="report-table-wrap">
+            <table class="annual-month-table">
+                <thead><tr><th>Month</th><th>Total faults</th><th>Regional ranking</th></tr></thead>
+                <tbody>@foreach($monthlyReports as $monthlyReport)
+                    <tr><td>{{ $monthlyReport['label'] }}</td><td>{{ $monthlyReport['total'] }}</td><td>{{ collect($monthlyReport['regions'])->map(fn ($region) => $region['region'].' ('.$region['faults'].')')->join(', ') ?: 'No faults reported' }}</td></tr>
+                @endforeach</tbody>
+            </table>
+        </div>
+
+        <h3 class="report-section-title">Annual regional evaluation</h3>
+        <div class="report-table-wrap">
+            <table class="regional-report-table">
+                <thead><tr><th>Region</th><th>Jan–Jun</th><th>Jul–Dec</th><th>Change</th><th>Evaluation</th></tr></thead>
+                <tbody>@foreach($regions as $region)
+                    @php($evaluation = $evaluations[$region['region']])
+                    <tr><td><strong>{{ $region['region'] }}</strong></td><td>{{ $evaluation['firstHalf'] }}</td><td>{{ $evaluation['secondHalf'] }}</td><td>{{ $evaluation['change'] > 0 ? '+' : '' }}{{ $evaluation['change'] }}%</td><td><span class="evaluation {{ strtolower($evaluation['status']) }}">{{ $evaluation['status'] }}</span></td></tr>
+                @endforeach</tbody>
+            </table>
+        </div>
+
+        <div class="manager-comments">
+            <h3 class="report-section-title">Manager comments</h3>
+            <p>Record an annual comment for each manager. Comments are saved with this report year.</p>
+            @forelse(collect($regions)->flatMap(fn ($region) => $region['managers'])->unique('id') as $manager)
+                <form method="POST" action="/admin/reports/comments/{{ $manager->id }}" class="manager-comment-form">
+                    @csrf
+                    <input type="hidden" name="year" value="{{ $year }}">
+                    <label><strong>{{ $manager->name }}</strong><small>{{ $manager->region }}</small></label>
+                    <textarea name="comment" rows="3" placeholder="Comment for this manager">{{ $comments->get($manager->id) }}</textarea>
+                    <button type="submit">Save comment</button>
+                </form>
+            @empty
+                <p>No managers have been assigned to a region.</p>
+            @endforelse
+        </div>
+    @endif
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const type = document.getElementById('report-type');
+    if (!type) return;
+    const setVisibility = () => {
+        document.querySelector('.month-input').style.display = type.value === 'monthly' ? 'grid' : 'none';
+        document.querySelector('.year-input').style.display = 'grid';
+    };
+    type.addEventListener('change', setVisibility); setVisibility();
+});
+</script>
 @endif
 
 <script>

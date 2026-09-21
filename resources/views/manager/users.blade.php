@@ -67,7 +67,7 @@
             </div>
             <p class="password-policy">Use at least 8 characters with 1 capital letter, 2 digits, and 1 special character.</p>
 
-            <button>Add User</button>
+            <button class="add-action-button">Add User</button>
         </form>
     </div>
 </div>
