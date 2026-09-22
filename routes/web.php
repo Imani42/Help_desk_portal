@@ -139,6 +139,7 @@ Route::middleware(['auth', 'role:manager'])->group(function () {
     Route::get('/manager/dashboard', [ManagerController::class, 'dashboard']);
     Route::get('/manager/faults', [ManagerController::class, 'allFaults']);
     Route::get('/manager/assigned', [ManagerController::class, 'assigned']);
+    Route::get('/manager/reports', [ManagerController::class, 'reports']);
     Route::get('/manager/account', [ManagerController::class, 'account']);
 
     Route::post('/manager/assign/{id}', [ManagerController::class, 'assign']);

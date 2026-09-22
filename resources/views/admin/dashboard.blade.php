@@ -231,6 +231,7 @@
             <select name="type" id="report-type">
                 <option value="monthly" {{ $type === 'monthly' ? 'selected' : '' }}>Monthly report</option>
                 <option value="annual" {{ $type === 'annual' ? 'selected' : '' }}>Annual report</option>
+                <option value="custom" {{ $type === 'custom' ? 'selected' : '' }}>Custom period</option>
             </select>
         </label>
         <label class="month-input">Month
@@ -238,6 +239,12 @@
         </label>
         <label class="year-input">Year
             <input type="number" name="year" min="2000" max="2100" value="{{ $year }}">
+        </label>
+        <label class="custom-start-input">Start month
+            <input type="month" name="custom_start" value="{{ $customStart }}">
+        </label>
+        <label class="custom-end-input">End month
+            <input type="month" name="custom_end" value="{{ $customEnd }}">
         </label>
         <button type="submit">Generate report</button>
     </form>
@@ -248,7 +255,7 @@
         <div>
             <img src="{{ asset('images/ttcl.png') }}" alt="TTCL" class="report-logo">
             <h2>TTCL Fault Performance Report</h2>
-            <p>{{ $type === 'annual' ? 'Annual' : 'Monthly' }} report: {{ $reportStart->format($type === 'annual' ? 'Y' : 'F Y') }}</p>
+            <p>{{ ucfirst($type) }} report: {{ $reportPeriod }}</p>
         </div>
         <p class="report-generated">Generated {{ now()->format('d M Y, H:i') }}</p>
     </div>
@@ -335,7 +342,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!type) return;
     const setVisibility = () => {
         document.querySelector('.month-input').style.display = type.value === 'monthly' ? 'grid' : 'none';
-        document.querySelector('.year-input').style.display = 'grid';
+        document.querySelector('.year-input').style.display = type.value === 'annual' ? 'grid' : 'none';
+        document.querySelector('.custom-start-input').style.display = type.value === 'custom' ? 'grid' : 'none';
+        document.querySelector('.custom-end-input').style.display = type.value === 'custom' ? 'grid' : 'none';
     };
     type.addEventListener('change', setVisibility); setVisibility();
 });

@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Http\Request;
 use App\Models\Fault;
+use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 
 
@@ -117,6 +118,107 @@ class ManagerController extends Controller
             'faults' => $faults,
             'technicians' => $technicians,
             'page' => 'assigned'
+        ]);
+    }
+
+    private function faultRateClass(float $rate): string
+    {
+        return match (true) {
+            $rate >= 80 => 'critical',
+            $rate >= 50 => 'high',
+            $rate >= 30 => 'medium',
+            default => 'low',
+        };
+    }
+
+    private function reportDistricts(Carbon $start, Carbon $end): array
+    {
+        $endExclusive = $end->copy()->addMonth();
+        $region = $this->managerRegion();
+        $faults = Fault::query()
+            ->with('reporter:id,district,region')
+            ->whereHas('reporter', fn ($query) => $query->where('region', $region))
+            ->where('created_at', '>=', $start)
+            ->where('created_at', '<', $endExclusive)
+            ->get(['id', 'user_id', 'created_at']);
+        $users = $this->usersInManagerRegion(['technician', 'customer'])
+            ->get(['id', 'district', 'role']);
+        $faultsByDistrict = $faults->groupBy(fn (Fault $fault) => $fault->reporter?->district ?: 'Unspecified');
+        $districts = $faultsByDistrict->keys()
+            ->merge($users->pluck('district')->filter())
+            ->unique()->sort()->values();
+        $totalFaults = $faults->count();
+
+        return $districts->map(function ($district) use ($faultsByDistrict, $users, $totalFaults) {
+            $faultCount = $faultsByDistrict->get($district, collect())->count();
+            $rate = $totalFaults ? round(($faultCount / $totalFaults) * 100, 1) : 0;
+            $districtUsers = $users->where('district', $district);
+
+            return [
+                'district' => $district,
+                'customers' => $districtUsers->where('role', 'customer')->count(),
+                'technicians' => $districtUsers->where('role', 'technician')->count(),
+                'faults' => $faultCount,
+                'rate' => $rate,
+                'rateClass' => $this->faultRateClass($rate),
+            ];
+        })->sortByDesc('faults')->values()->map(function ($district, $index) {
+            $district['rank'] = $index + 1;
+            return $district;
+        })->all();
+    }
+
+    public function reports(Request $request)
+    {
+        $request->validate([
+            'type' => ['nullable', 'in:monthly,annual,custom'],
+            'month' => ['nullable', 'date_format:Y-m'],
+            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+            'custom_start' => ['nullable', 'date_format:Y-m'],
+            'custom_end' => ['nullable', 'date_format:Y-m'],
+        ]);
+
+        $type = $request->input('type', 'monthly');
+        $year = (int) $request->input('year', now()->year);
+        $month = $request->input('month', now()->format('Y-m'));
+        $customStart = $request->input('custom_start', now()->format('Y-m'));
+        $customEnd = $request->input('custom_end', now()->format('Y-m'));
+        $start = $type === 'annual'
+            ? Carbon::create($year, 1, 1)->startOfMonth()
+            : Carbon::createFromFormat('Y-m', $type === 'custom' ? $customStart : $month)->startOfMonth();
+        $end = $type === 'annual'
+            ? $start->copy()->endOfYear()->startOfMonth()
+            : Carbon::createFromFormat('Y-m', $type === 'custom' ? $customEnd : $month)->startOfMonth();
+        if ($start->greaterThan($end)) {
+            throw ValidationException::withMessages(['custom_end' => 'The end month must be the same as or later than the start month.']);
+        }
+        $districts = $this->reportDistricts($start, $end);
+        $monthlyReports = [];
+
+        if ($type === 'annual') {
+            for ($number = 1; $number <= 12; $number++) {
+                $period = Carbon::create($year, $number, 1)->startOfMonth();
+                $monthDistricts = $this->reportDistricts($period, $period);
+                $monthlyReports[] = [
+                    'label' => $period->format('F'),
+                    'total' => collect($monthDistricts)->sum('faults'),
+                    'districts' => $monthDistricts,
+                ];
+            }
+        }
+
+        $reportPeriod = $type === 'annual'
+            ? $start->format('Y')
+            : ($type === 'custom' ? $start->format('F Y').' – '.$end->format('F Y') : $start->format('F Y'));
+
+        return view('manager.dashboard', compact('type', 'year', 'month', 'customStart', 'customEnd', 'districts', 'monthlyReports', 'reportPeriod') + [
+            'reportStart' => $start,
+            'reportedCount' => $this->faultsInManagerRegion()->count(),
+            'pendingCount' => $this->faultsInManagerRegion()->where('status', 'Pending')->count(),
+            'assignedCount' => $this->faultsInManagerRegion()->whereNotNull('technician_id')->count(),
+            'inProgressCount' => $this->faultsInManagerRegion()->where('status', 'In Progress')->count(),
+            'resolvedCount' => $this->faultsInManagerRegion()->where('status', 'Resolved')->count(),
+            'page' => 'reports',
         ]);
     }
 

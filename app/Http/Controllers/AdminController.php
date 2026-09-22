@@ -283,18 +283,27 @@ class AdminController extends Controller
     {
         $this->authorizeAdmin();
         $request->validate([
-            'type' => ['nullable', 'in:monthly,annual'],
+            'type' => ['nullable', 'in:monthly,annual,custom'],
             'month' => ['nullable', 'date_format:Y-m'],
             'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+            'custom_start' => ['nullable', 'date_format:Y-m'],
+            'custom_end' => ['nullable', 'date_format:Y-m'],
         ]);
 
         $type = $request->input('type', 'monthly');
         $year = (int) $request->input('year', now()->year);
         $month = $request->input('month', now()->format('Y-m'));
+        $customStart = $request->input('custom_start', now()->format('Y-m'));
+        $customEnd = $request->input('custom_end', now()->format('Y-m'));
         $start = $type === 'annual'
             ? Carbon::create($year, 1, 1)->startOfMonth()
-            : Carbon::createFromFormat('Y-m', $month)->startOfMonth();
-        $end = $type === 'annual' ? $start->copy()->endOfYear()->startOfMonth() : $start->copy();
+            : Carbon::createFromFormat('Y-m', $type === 'custom' ? $customStart : $month)->startOfMonth();
+        $end = $type === 'annual'
+            ? $start->copy()->endOfYear()->startOfMonth()
+            : Carbon::createFromFormat('Y-m', $type === 'custom' ? $customEnd : $month)->startOfMonth();
+        if ($start->greaterThan($end)) {
+            throw ValidationException::withMessages(['custom_end' => 'The end month must be the same as or later than the start month.']);
+        }
         $regions = $this->reportRegions($start, $end);
 
         $monthlyReports = [];
@@ -319,7 +328,11 @@ class AdminController extends Controller
             $comments = ManagerReportComment::where('year', $year)->pluck('comment', 'manager_id');
         }
 
-        return view('admin.dashboard', compact('type', 'year', 'month', 'regions', 'monthlyReports', 'evaluations', 'comments') + [
+        $reportPeriod = $type === 'annual'
+            ? $start->format('Y')
+            : ($type === 'custom' ? $start->format('F Y').' – '.$end->format('F Y') : $start->format('F Y'));
+
+        return view('admin.dashboard', compact('type', 'year', 'month', 'customStart', 'customEnd', 'regions', 'monthlyReports', 'evaluations', 'comments', 'reportPeriod') + [
             'reportStart' => $start,
             'reportEnd' => $end,
             'page' => 'reports',

@@ -2,10 +2,9 @@
 
 @section('content')
 
-{{-- DASHBOARD --}}
-@if($page == 'dashboard')
-
 @php
+    // This template is shared by all manager pages, so dashboard totals must
+    // always have safe defaults when a page does not provide them.
     $reported = $reportedCount ?? 0;
     $pending = $pendingCount ?? 0;
     $assigned = $assignedCount ?? 0;
@@ -22,6 +21,104 @@
         ['name' => 'Resolved', 'end' => 360],
     ];
 @endphp
+
+{{-- REPORTS --}}
+@if($page == 'reports')
+<div class="report-tools no-print">
+    <div>
+        <h1>Regional District Reports</h1>
+        <p>Generate a monthly, annual, or custom-period report for {{ auth()->user()->region }} and print it when ready.</p>
+    </div>
+    <button type="button" class="report-print-button" onclick="window.print()">Print Report</button>
+</div>
+
+<div class="card report-filter no-print">
+    <form method="GET" action="/manager/reports">
+        <label>Report type
+            <select name="type" id="report-type">
+                <option value="monthly" {{ $type === 'monthly' ? 'selected' : '' }}>Monthly report</option>
+                <option value="annual" {{ $type === 'annual' ? 'selected' : '' }}>Annual report</option>
+                <option value="custom" {{ $type === 'custom' ? 'selected' : '' }}>Custom period</option>
+            </select>
+        </label>
+        <label class="month-input">Month
+            <input type="month" name="month" value="{{ $month }}">
+        </label>
+        <label class="year-input">Year
+            <input type="number" name="year" min="2000" max="2100" value="{{ $year }}">
+        </label>
+        <label class="custom-start-input">Start month
+            <input type="month" name="custom_start" value="{{ $customStart }}">
+        </label>
+        <label class="custom-end-input">End month
+            <input type="month" name="custom_end" value="{{ $customEnd }}">
+        </label>
+        <button type="submit">Generate report</button>
+    </form>
+</div>
+
+<section class="report-document">
+    <div class="report-heading">
+        <div>
+            <img src="{{ asset('images/ttcl.png') }}" alt="TTCL" class="report-logo">
+            <h2>TTCL {{ auth()->user()->region }} District Report</h2>
+            <p>{{ ucfirst($type) }} report: {{ $reportPeriod }}</p>
+        </div>
+        <p class="report-generated">Prepared by {{ auth()->user()->name }}<br>Generated {{ now()->format('d M Y, H:i') }}</p>
+    </div>
+
+    @php($rateGroups = ['80–100% of faults' => 'critical', '50–79% of faults' => 'high', '30–49% of faults' => 'medium', '0–29% of faults' => 'low'])
+    @if(collect($districts)->isEmpty())
+        <p class="report-empty">No district records are available for this region.</p>
+    @else
+        @foreach($rateGroups as $groupLabel => $groupClass)
+            @php($groupDistricts = collect($districts)->where('rateClass', $groupClass))
+            @if($groupDistricts->isNotEmpty())
+                <section class="report-rate-group {{ $groupClass }}">
+                    <h3>{{ $groupLabel }}</h3>
+                    <div class="report-table-wrap">
+                        <table class="regional-report-table">
+                            <thead><tr><th>Rank</th><th>District</th><th>Customers</th><th>Technicians</th><th>Faults reported</th><th>Fault rate</th></tr></thead>
+                            <tbody>@foreach($groupDistricts as $district)
+                                <tr><td>#{{ $district['rank'] }}</td><td><strong>{{ $district['district'] }}</strong></td><td>{{ $district['customers'] }}</td><td>{{ $district['technicians'] }}</td><td>{{ $district['faults'] }}</td><td><span class="rate-badge {{ $district['rateClass'] }}">{{ number_format($district['rate'], 1) }}%</span></td></tr>
+                            @endforeach</tbody>
+                        </table>
+                    </div>
+                </section>
+            @endif
+        @endforeach
+    @endif
+
+    @if($type === 'annual')
+        <h3 class="report-section-title">Monthly district fault reports</h3>
+        <div class="report-table-wrap">
+            <table class="annual-month-table">
+                <thead><tr><th>Month</th><th>Total faults</th><th>District breakdown</th></tr></thead>
+                <tbody>@foreach($monthlyReports as $monthlyReport)
+                    <tr><td>{{ $monthlyReport['label'] }}</td><td>{{ $monthlyReport['total'] }}</td><td>{{ collect($monthlyReport['districts'])->map(fn ($district) => $district['district'].' ('.$district['faults'].')')->join(', ') ?: 'No faults reported' }}</td></tr>
+                @endforeach</tbody>
+            </table>
+        </div>
+    @endif
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const type = document.getElementById('report-type');
+    if (!type) return;
+    const setVisibility = () => {
+        document.querySelector('.month-input').style.display = type.value === 'monthly' ? 'grid' : 'none';
+        document.querySelector('.year-input').style.display = type.value === 'annual' ? 'grid' : 'none';
+        document.querySelector('.custom-start-input').style.display = type.value === 'custom' ? 'grid' : 'none';
+        document.querySelector('.custom-end-input').style.display = type.value === 'custom' ? 'grid' : 'none';
+    };
+    type.addEventListener('change', setVisibility); setVisibility();
+});
+</script>
+@endif
+
+{{-- DASHBOARD --}}
+@if($page == 'dashboard')
 
 <div class="manager-dashboard-head">
     <div>

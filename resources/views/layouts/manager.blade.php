@@ -31,6 +31,7 @@
         <a href="/manager/users" class="{{ $page=='users' ? 'active' : '' }}">Add Users</a>
         <a href="/manager/technicians" class="{{ $page=='technicians' ? 'active' : '' }}">Technicians</a>
         <a href="/manager/customers" class="{{ $page=='customers' ? 'active' : '' }}">Customers</a>
+        <a href="/manager/reports" class="{{ $page=='reports' ? 'active' : '' }}">Reports</a>
         <a href="/manager/account" class="{{ $page=='account' ? 'active' : '' }}">Account</a>
 
         <a href="/logout" class="logout">Logout</a>
